@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Cursed Transactions Export
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  try to take over the world!
 // @author       Snownee
 // @match        https://authors.curseforge.com/store/transactions*
@@ -57,6 +57,15 @@ async function exportData(){
         let dayData = { date: curDate.getFullYear() + '/' + (curDate.getMonth()+1) + '/' + curDate.getDate() }
         if (sameDay(award.date, curDate)) {
             dayData.total = $('.toggle strong', award.award)[0].innerHTML
+            let items = $('.sub-reward-item li', award.award)
+            for (let i = 0; i < items.length; ++i) {
+                let item = items[i]
+                let project = $('a', item)[0].innerHTML
+                dayData[project] = $('b', item)[0].innerHTML
+                if (!cols.includes(project)) {
+                    cols.push(project)
+                }
+            }
             award = null
         }
         sheet.push(dayData)
