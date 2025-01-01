@@ -1,23 +1,23 @@
 // ==UserScript==
 // @name         Cursed Transactions Export
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.4
 // @description  try to take over the world!
 // @author       Snownee
-// @match        https://authors.curseforge.com/store/transactions*
+// @match        https://authors.curseforge.com/*
+// @match        https://authors-old.curseforge.com/store/transactions*
 // @connect      cdn.jsdelivr.net
 // @connect      authors.curseforge.com
 // @require      https://cdn.jsdelivr.net/npm/jquery@3.4.0/dist/jquery.min.js
-// @grant     GM.registerMenuCommand
-// @grant     GM_xmlhttpRequest
+// @grant        GM_registerMenuCommand
+// @grant        GM_xmlhttpRequest
+// @grant        GM_getValue
+// @grant        GM_setValue
 // @homepage     https://github.com/Snownee/CursedTransactionsExport
 // ==/UserScript==
 
-var days = 300;
-var transactionsPerRequest = 50;
-
-(function() {
-    GM.registerMenuCommand('Export Transactions', exportData)
+(function () {
+    GM_registerMenuCommand('Export Transactions', exportData)
 })();
 
 function makeGetRequest(url) {
@@ -25,17 +25,36 @@ function makeGetRequest(url) {
         GM_xmlhttpRequest({
             method: "GET",
             url: url,
-            onload: function(response) {
+            onload: function (response) {
                 resolve(response.responseText);
             },
-            onerror: function(error) {
+            onerror: function (error) {
                 reject(error);
             }
         });
     });
 }
 
-async function exportData(){
+async function exportData() {
+    if (!isLegacyConsole()) {
+        if (confirm("You are not in the legacy console, do you want to go there?")) {
+            goToLegacyConsole()
+        }
+        return
+    }
+
+    let days = prompt("How many days of data do you want to export?", "366")
+    if (days == null) {
+        alert("Doesn't look like a valid number!")
+        return
+    }
+
+    days = Number(days)
+    if (isNaN(days) || days < 1) {
+        alert("Doesn't look like a valid number!")
+        return
+    }
+
     let curDate = new Date()
     let destDate = new Date(curDate.getTime() - (days * 24 * 60 * 60 * 1000))
     let award
@@ -43,18 +62,19 @@ async function exportData(){
     let reqCtx = {
         queue: [],
         index: 0,
-        noMore: false
+        noMore: false,
+        transactionsPerRequest: 50
     }
     let cols = ['date', 'total']
 
-    while(curDate > destDate) {
+    while (curDate > destDate) {
         if (award == null) {
             award = await nextAward(reqCtx)
             if (award == null) {
                 break
             }
         }
-        let dayData = { date: curDate.getFullYear() + '/' + (curDate.getMonth()+1) + '/' + curDate.getDate() }
+        let dayData = { date: curDate.getFullYear() + '/' + (curDate.getMonth() + 1) + '/' + curDate.getDate() }
         //console.log(award)
         if (sameDay(award.date, curDate)) {
             dayData.total = $('.toggle strong', award.award)[0].innerHTML
@@ -72,16 +92,18 @@ async function exportData(){
         sheet.push(dayData)
         curDate = new Date(curDate.getTime() - 24 * 60 * 60 * 1000)
     }
+
     if (sheet.length === 0) {
-        console.log("empty??")
+        alert("No data found!")
         return
     }
+
     sheet = sheet.reverse()
     //console.log(sheet)
-    genCSV(cols, sheet)
+    genCSV(days, cols, sheet)
 }
 
-function genCSV(cols, sheet) {
+function genCSV(days, cols, sheet) {
     let csv = ''
     let first = cols[0]
     for (let col of cols) {
@@ -104,10 +126,9 @@ function genCSV(cols, sheet) {
         }
         csv += '\n'
     }
-    console.log(csv)
     let a = document.createElement("a");
-    a.href = "data:text," + csv;   //content
-    a.download = "PointsData-" + days + "Days.csv";            //file name
+    a.href = "data:text," + csv; //content
+    a.download = "PointsData-" + days + "Days.csv"; //file name
     a.click();
 }
 
@@ -118,16 +139,16 @@ async function nextAward(ctx) {
     if (ctx.noMore) {
         return null
     }
-    console.log('Fetching... ' + (ctx.index + transactionsPerRequest))
-    let data = await makeGetRequest(`https://authors.curseforge.com/store/transactions-ajax/${ctx.index}-${transactionsPerRequest}-7`)
-    ctx.index += transactionsPerRequest
+    console.log('Fetching... ' + (ctx.index + ctx.transactionsPerRequest))
+    let data = await makeGetRequest(`https://authors-old.curseforge.com/store/transactions-ajax/${ctx.index}-${ctx.transactionsPerRequest}-7`)
+    ctx.index += ctx.transactionsPerRequest
     let root = $.parseHTML(`<div>${data}</div>`)
     let transactions = $('.transactions', root)
     let l = transactions.length
     if (l == 0) {
         return null
     }
-    if (l < transactionsPerRequest) {
+    if (l < ctx.transactionsPerRequest) {
         ctx.noMore = true
     }
     for (let i = 0; i < l; ++i) {
@@ -147,4 +168,16 @@ function sameDay(d1, d2) {
     return d1.getFullYear() === d2.getFullYear() &&
         d1.getMonth() === d2.getMonth() &&
         d1.getDate() === d2.getDate();
+}
+
+function goToLegacyConsole() {
+    if (isLegacyConsole()) {
+        alert("You are already in the legacy console!")
+        return
+    }
+    window.location.href = "https://authors-old.curseforge.com/store/transactions"
+}
+
+function isLegacyConsole() {
+    return window.location.href.startsWith("https://authors-old.curseforge.com/store/transactions")
 }
