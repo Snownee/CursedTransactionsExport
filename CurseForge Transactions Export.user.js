@@ -11,8 +11,6 @@
 // @require      https://cdn.jsdelivr.net/npm/jquery@3.4.0/dist/jquery.min.js
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
-// @grant        GM_getValue
-// @grant        GM_setValue
 // @homepage     https://github.com/Snownee/CursedTransactionsExport
 // ==/UserScript==
 
